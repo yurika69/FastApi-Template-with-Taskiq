@@ -1,0 +1,40 @@
+services:
+  redis:
+    image: redis:latest
+    hostname: redis
+    restart: always
+
+  web:
+    build:
+      context: .
+    environment:
+      - REDIS_URL=redis://redis
+      - API_URL=${AL_API_URL}
+      - API_KEY=${API_KEY}
+    command: uvicorn src.__main__:get_app --factory --workers 1 --host 0.0.0.0 --port 8000
+    depends_on:
+      - redis
+    restart: always
+  taskiq-worker:
+    build:
+      context: .
+    environment:
+      - REDIS_URL=redis://redis
+      - API_URL=${AL_API_URL}
+      - API_KEY=${API_KEY}
+    command: [ "taskiq", "worker", "-fsd", "src.bork:broker", "-w", "1", "--max-fails", "1", "--max-async-tasks", "1" ]
+    depends_on:
+      - redis
+    restart: always
+
+  # taskiq-scheduler:
+  #   build:
+  #     context: .
+  #   command: [ "taskiq", "scheduler", "-fsd", "src.tkq:scheduler", "src.t_scheduler" ]
+  #   depends_on:
+  #     - redis
+  #   restart: always
+
+volumes:
+  redis_data:
+    driver: local
